@@ -111,42 +111,30 @@ resource "aws_security_group" "rds-sg" {
 }
 
 
-resource "aws_lb" "main" {
-  name               = "staircase-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.albsec-sg.id]
-  subnets            = aws_db_subnet_group.subnet1.subnet_ids
-
-  enable_deletion_protection = false
+resource "aws_apigatewayv2_api" "apiname" {
+  name          = "apiname"
+  protocol_type = "HTTP"
 }
 
-resource "aws_alb_target_group" "main" {
-  name        = "Staircase-alb-targetgp"
-  port        = 8000
-  protocol    = "HTTP"
-  vpc_id      = module.vpc.vpc_id
-  target_type = "ip"
-
-  health_check {
-    healthy_threshold   = "3"
-    interval            = "30"
-    protocol            = "HTTP"
-    matcher             = "200"
-    timeout             = "3"
-    path                = "/"
-    unhealthy_threshold = "2"
-  }
+resource "aws_apigatewayv2_stage" "pythongamingproject" {
+  api_id      = aws_apigatewayv2_api.apiname.id
+  name        = "$default"
+  auto_deploy = true
 }
 
-resource "aws_alb_listener" "http" {
-  load_balancer_arn = aws_lb.main.id
-  port              = 80
-  protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.main.arn
-  }
+resource "aws_apigatewayv2_integration" "apiname" {
 
+  api_id             = aws_apigatewayv2_api.apiname.id
+  integration_type   = "HTTP_PROXY"
+  integration_method = "ANY"
+  depends_on      = [aws_alb_listener.http]
+  integration_uri = "http://${aws_lb.main.dns_name}/{proxy}"
 }
+
+resource "aws_apigatewayv2_route" "apiname" {
+  api_id    = aws_apigatewayv2_api.apiname.id
+  route_key = "ANY /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.apiname.id}"
+}
+

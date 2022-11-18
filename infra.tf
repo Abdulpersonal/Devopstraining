@@ -30,6 +30,31 @@ resource "aws_db_subnet_group" "subnet2" {
   }
 }
 
+
+resource "aws_db_instance" "mydb_instance" {
+  allocated_storage    = 8
+  db_name              = var.rds[0]
+  engine               = var.rds[1]
+  engine_version       = var.rds[2]
+  instance_class       = var.rds[3]
+  username             = var.rds[4]
+  password             = var.rds[5]
+  parameter_group_name = var.rds[6]
+  skip_final_snapshot  = true
+  publicly_accessible = true
+  identifier="staircase-app-rds"
+  db_subnet_group_name = aws_db_subnet_group.subnet1.name
+  vpc_security_group_ids = [aws_security_group.rds-sg.id]
+}
+
+resource "aws_ssm_parameter" "rdshost_address" {
+  depends_on = [aws_db_instance.mydb_instance]
+  name  = var.ssm
+  type  = "String"
+  value = aws_db_instance.mydb_instance.endpoint
+}
+
+
 resource "aws_ecs_cluster" "clustername" {
   name = "Staircaseprojectcluster"
 }
@@ -41,6 +66,7 @@ resource "aws_ecs_cluster_capacity_providers" "clusternameprovider" {
 
 
 resource "aws_ecs_task_definition" "staircasetask" {
+depends_on = [aws_ssm_parameter.rdshost_address]
   family                   = "terraformtaskplan"
   network_mode             = "awsvpc"
   task_role_arn            = aws_iam_role.ECSrole.arn
@@ -48,6 +74,7 @@ resource "aws_ecs_task_definition" "staircasetask" {
   cpu                      = 1024
   memory                   = 2048
   execution_role_arn       = aws_iam_role.ECSrole.arn
+
   container_definitions    = <<DEFINITION
 [
   {
@@ -62,7 +89,7 @@ resource "aws_ecs_task_definition" "staircasetask" {
     "secrets": [
             {
                 "name": "host",
-                "valueFrom": "Staircasedbhost"
+                "valueFrom": "${aws_ssm_parameter.rdshost_address.name}"
             }
         ]
   }
@@ -87,7 +114,7 @@ resource "aws_ecs_service" "Taskservice" {
   }
 
 
-  #depends_on = [aws_alb_listener.http]
+  depends_on = [aws_alb_listener.http]
 
   load_balancer {
     target_group_arn = aws_alb_target_group.main.arn
@@ -97,30 +124,42 @@ resource "aws_ecs_service" "Taskservice" {
 
 }
 
-resource "aws_apigatewayv2_api" "apiname" {
-  name          = "apiname"
-  protocol_type = "HTTP"
+resource "aws_lb" "main" {
+  name               = "staircase-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.albsec-sg.id]
+  subnets            = aws_db_subnet_group.subnet1.subnet_ids
+
+  enable_deletion_protection = false
 }
 
-resource "aws_apigatewayv2_stage" "pythongamingproject" {
-  api_id      = aws_apigatewayv2_api.apiname.id
-  name        = "$default"
-  auto_deploy = true
+resource "aws_alb_target_group" "main" {
+  name        = "Staircase-alb-targetgp"
+  port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = module.vpc.vpc_id
+  target_type = "ip"
+
+  health_check {
+    healthy_threshold   = "3"
+    interval            = "30"
+    protocol            = "HTTP"
+    matcher             = "200"
+    timeout             = "3"
+    path                = "/"
+    unhealthy_threshold = "2"
+  }
 }
 
+resource "aws_alb_listener" "http" {
+  load_balancer_arn = aws_lb.main.id
+  port              = 80
+  protocol          = "HTTP"
 
-resource "aws_apigatewayv2_integration" "apiname" {
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.main.arn
+  }
 
-  api_id             = aws_apigatewayv2_api.apiname.id
-  integration_type   = "HTTP_PROXY"
-  integration_method = "ANY"
-  #depends_on      = [aws_alb_listener.http]
-  integration_uri = "http://${aws_lb.main.dns_name}/{proxy}"
 }
-
-resource "aws_apigatewayv2_route" "apiname" {
-  api_id    = aws_apigatewayv2_api.apiname.id
-  route_key = "ANY /{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.apiname.id}"
-}
-

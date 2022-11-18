@@ -1,13 +1,13 @@
-# output "rds_id" {
-#   description = "Endpoint of the RDS instance"
-#   value       = [aws_db_instance.mydb_instance.endpoint, aws_db_instance.mydb_instance.arn]
-# }
+output "rds_id" {
+  description = "Endpoint of the RDS instance"
+  value       = [aws_db_instance.mydb_instance.endpoint, aws_db_instance.mydb_instance.arn]
+}
 
 
-# output "SSM" {
-#   description = "Paramstore name"
-#   value       = aws_ssm_parameter.rdshost_address.name
-# }
+output "SSM" {
+  description = "Paramstore name"
+  value       = aws_ssm_parameter.rdshost_address.name
+}
 
 output "VPC" {
   description = "VPC ID"
