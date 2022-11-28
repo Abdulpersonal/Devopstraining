@@ -15,7 +15,7 @@ resource "aws_iam_role" "ECSrole" {
     ]
 }
 EOF
-  managed_policy_arns = [aws_iam_policy.ssmpolicy.arn, "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+  managed_policy_arns = [aws_iam_policy.ssmpolicy.arn,aws_iam_policy.ecs_exec.arn, "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy","arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"]
 }
 
 resource "aws_iam_policy" "ssmpolicy" {
@@ -40,6 +40,31 @@ resource "aws_iam_policy" "ssmpolicy" {
 }
 EOF
 }
+
+resource "aws_iam_policy" "ecs_exec" {
+
+  name = "ECS_exec_ssm_POLICY"
+  path = "/"
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssmmessages:CreateControlChannel",
+                "ssmmessages:CreateDataChannel",
+                "ssmmessages:OpenControlChannel",
+                "ssmmessages:OpenDataChannel"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
 
 
 resource "aws_security_group" "albsec-sg" {
@@ -111,6 +136,36 @@ resource "aws_security_group" "rds-sg" {
 }
 
 
+
+resource "aws_appautoscaling_target" "dev_to_target" {
+  max_capacity = 3
+  min_capacity = 1
+  resource_id = "service/${aws_ecs_cluster.clustername.name}/${aws_ecs_service.Taskservice.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "dev_to_memory" {
+  name               = "dev-to-memory"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.dev_to_target.resource_id
+  scalable_dimension = aws_appautoscaling_target.dev_to_target.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.dev_to_target.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ALBRequestCountPerTarget"
+      resource_label = "${aws_lb.main.arn_suffix}/${aws_alb_target_group.main.arn_suffix}"
+    }
+    target_value  = 2
+    scale_in_cooldown  = 30
+    scale_out_cooldown = 30
+    
+  }
+}
+
+
+
 resource "aws_apigatewayv2_api" "apiname" {
   name          = "apiname"
   protocol_type = "HTTP"
@@ -121,7 +176,6 @@ resource "aws_apigatewayv2_stage" "pythongamingproject" {
   name        = "$default"
   auto_deploy = true
 }
-
 
 resource "aws_apigatewayv2_integration" "apiname" {
 

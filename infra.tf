@@ -15,19 +15,11 @@ module "vpc" {
 resource "aws_db_subnet_group" "subnet1" {
   name       = "publicsubnet1"
   subnet_ids = module.vpc.public_subnets
-
-  tags = {
-    Name = "publicsubnet1"
-  }
 }
 
 resource "aws_db_subnet_group" "subnet2" {
   name       = "publicsubnet2"
   subnet_ids = module.vpc.public_subnets
-
-  tags = {
-    Name = "publicsubnet2"
-  }
 }
 
 
@@ -86,6 +78,15 @@ depends_on = [aws_ssm_parameter.rdshost_address]
         "hostPort": 8000
       }
     ],
+    "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-create-group": "true",
+                "awslogs-group": "ecs/staircase-pythongame-group",
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "ecs"
+              }
+           },
     "secrets": [
             {
                 "name": "host",
@@ -161,5 +162,4 @@ resource "aws_alb_listener" "http" {
     type             = "forward"
     target_group_arn = aws_alb_target_group.main.arn
   }
-
 }
