@@ -13,10 +13,16 @@ output "VPC" {
   description = "VPC ID"
   value       = module.vpc.vpc_id
 }
-output "ECSservice" {
-  description = "ECS"
+output "ECScluster" {
+  description = "ECS Cluster"
   value       = aws_ecs_service.Taskservice.cluster
 }
+ output "ECSSERVICE" {
+   description = "ECS"
+  value       = aws_ecs_service.Taskservice.id
+}
+ 
+
 
 output "ALB" {
   description = "ALB"

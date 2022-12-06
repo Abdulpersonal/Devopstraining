@@ -43,8 +43,29 @@ resource "aws_ssm_parameter" "rdshost_address" {
   depends_on = [aws_db_instance.mydb_instance]
   name  = var.ssm
   type  = "String"
-  value = aws_db_instance.mydb_instance.endpoint
+  value = aws_db_instance.mydb_instance.address
 }
+
+data "aws_ssm_parameter" "repo_name"{
+  name="ecr_repo"
+}
+data "aws_ssm_parameter" "db_name"{
+  name="dbname"
+}
+data "aws_ssm_parameter" "db_user"{
+  name="dbpass"
+}
+data "aws_ssm_parameter" "db_password"{
+  name="dbusername"
+}
+
+# data "aws_ssm_parameter" "db_username"{
+#   name=""
+# }
+
+# data "aws_ssm_parameter" "db_pass"{
+#   name=""
+# }
 
 
 resource "aws_ecs_cluster" "clustername" {
@@ -70,7 +91,7 @@ depends_on = [aws_ssm_parameter.rdshost_address]
   container_definitions    = <<DEFINITION
 [
   {
-    "image": "936519216253.dkr.ecr.us-east-1.amazonaws.com/pythongamingproject:updated",
+    "image": "${data.aws_ssm_parameter.repo_name.value}",
     "name": "terraformtaskplan",
     "portMappings": [
       {
@@ -91,7 +112,20 @@ depends_on = [aws_ssm_parameter.rdshost_address]
             {
                 "name": "host",
                 "valueFrom": "${aws_ssm_parameter.rdshost_address.name}"
+            },
+            {
+                "name": "dbname",
+                "valueFrom": "${data.aws_ssm_parameter.db_name.value}"
+            },
+            {
+                "name": "dbusername",
+                "valueFrom": "${data.aws_ssm_parameter.db_user.value}"
+            },
+            {
+                "name": "dbpassword",
+                "valueFrom": "${data.aws_ssm_parameter.db_password.value}"
             }
+
         ]
   }
 ]
@@ -104,6 +138,7 @@ resource "aws_ecs_service" "Taskservice" {
   task_definition = aws_ecs_task_definition.staircasetask.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+  enable_execute_command = true
 
 
 
