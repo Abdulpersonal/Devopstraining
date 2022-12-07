@@ -25,12 +25,12 @@ resource "aws_db_subnet_group" "subnet2" {
 
 resource "aws_db_instance" "mydb_instance" {
   allocated_storage    = 8
-  db_name              = data.aws_ssm_parameter.db_name.name
+  db_name              = data.aws_ssm_parameter.db_name.value
   engine               = var.rds[0]
   engine_version       = var.rds[1]
   instance_class       = var.rds[2]
-  username             = data.aws_ssm_parameter.db_user.name
-  password             = data.aws_ssm_parameter.db_password.name
+  username             = data.aws_ssm_parameter.db_user.value
+  password             = data.aws_ssm_parameter.db_password.value
   parameter_group_name = var.rds[3]
   skip_final_snapshot  = true
   publicly_accessible = true
