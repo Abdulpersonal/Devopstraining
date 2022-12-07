@@ -25,13 +25,13 @@ resource "aws_db_subnet_group" "subnet2" {
 
 resource "aws_db_instance" "mydb_instance" {
   allocated_storage    = 8
-  db_name              = var.rds[0]
-  engine               = var.rds[1]
-  engine_version       = var.rds[2]
-  instance_class       = var.rds[3]
-  username             = var.rds[4]
-  password             = var.rds[5]
-  parameter_group_name = var.rds[6]
+  db_name              = data.aws_ssm_parameter.db_name.name
+  engine               = var.rds[0]
+  engine_version       = var.rds[1]
+  instance_class       = var.rds[2]
+  username             = data.aws_ssm_parameter.db_user.name
+  password             = data.aws_ssm_parameter.db_password.name
+  parameter_group_name = var.rds[3]
   skip_final_snapshot  = true
   publicly_accessible = true
   identifier="staircase-app-rds"
@@ -53,10 +53,10 @@ data "aws_ssm_parameter" "db_name"{
   name="dbname"
 }
 data "aws_ssm_parameter" "db_user"{
-  name="dbpass"
+  name="dbusername"
 }
 data "aws_ssm_parameter" "db_password"{
-  name="dbusername"
+  name="dbpass"
 }
 
 # data "aws_ssm_parameter" "db_username"{
@@ -115,15 +115,15 @@ depends_on = [aws_ssm_parameter.rdshost_address]
             },
             {
                 "name": "dbname",
-                "valueFrom": "${data.aws_ssm_parameter.db_name.value}"
+                "valueFrom": "${data.aws_ssm_parameter.db_name.name}"
             },
             {
                 "name": "dbusername",
-                "valueFrom": "${data.aws_ssm_parameter.db_user.value}"
+                "valueFrom": "${data.aws_ssm_parameter.db_user.name}"
             },
             {
                 "name": "dbpassword",
-                "valueFrom": "${data.aws_ssm_parameter.db_password.value}"
+                "valueFrom": "${data.aws_ssm_parameter.db_password.name}"
             }
 
         ]
